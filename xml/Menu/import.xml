@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<menu>
+  <item>
+    <path>civicrm/event-participant-import</path>
+    <page_callback>CRM_Import_Form_ParticipantImporter</page_callback>
+    <title>ParticipantImporter</title>
+    <access_arguments>access CiviCRM</access_arguments>
+  </item>
+</menu>
