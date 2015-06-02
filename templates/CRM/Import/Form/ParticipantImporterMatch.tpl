@@ -1,4 +1,5 @@
 {* HEADER *}
+<p>Leave the field empty to create a new contact for the given person</p> <hr />
 
 {foreach from=$elementNames item=elementName}
   <div class="crm-section">
@@ -7,7 +8,6 @@
     <div class="clear"></div>
   </div>
 {/foreach}
-
 
 {* FOOTER *}
 <div class="crm-submit-buttons">

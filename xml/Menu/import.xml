@@ -6,4 +6,16 @@
     <title>ParticipantImporter</title>
     <access_arguments>access CiviCRM</access_arguments>
   </item>
+  <item>
+    <path>civicrm/event-participant-import-form</path>
+    <page_callback>CRM_Import_Form_ParticipantImporterMatch</page_callback>
+    <title>ParticipantImporterMatch</title>
+    <access_arguments>access CiviCRM</access_arguments>
+  </item>
+  <item>
+    <path>civicrm/event-participant-import-complete</path>
+    <page_callback>CRM_Import_Page_ParticipantImportComplete</page_callback>
+    <title>ParticipantImportComplete</title>
+    <access_arguments>access CiviCRM</access_arguments>
+  </item>
 </menu>
