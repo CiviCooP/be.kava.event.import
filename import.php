@@ -68,3 +68,34 @@ function import_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
 function import_civicrm_managed(&$entities) {
   return _import_civix_civicrm_managed($entities);
 }
+
+
+/**
+ * Implementation of hook_civicrm_navigationMenu *
+ * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_navigationMenu
+ */
+function import_civicrm_navigationMenu(&$params) {
+
+  foreach($params as &$menu) {
+    // print_r($params);
+    if(array_key_exists('attributes', $menu) && $menu['attributes']['name'] == 'Events') {
+
+      $maxKey = (max(array_keys($menu['child'])));
+      $menu['child'][$maxKey]['attributes']['separator'] = 1;
+
+      $menu['child'][$maxKey+1] = array (
+          'attributes' => array (
+              'label'      => ts('Deelnemers importeren uit Pharfolio'),
+              'name'       => ts('Deelnemers importeren uit Pharfolio'),
+              'url'        => 'civicrm/event-participant-import',
+              'permission' => 'edit event participants',
+              'operator'   => null,
+              'separator'  => null,
+              'parentID'   => 2,
+              'navID'      => $maxKey+1,
+              'active'     => 1,
+          ),
+      );
+    }
+  }
+}
