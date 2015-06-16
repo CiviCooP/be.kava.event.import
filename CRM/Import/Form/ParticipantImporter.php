@@ -42,7 +42,11 @@ class CRM_Import_Form_ParticipantImporter extends CRM_Core_Form {
 	
 	function postProcess() {
 		$values = $this->exportValues();
-		$this->location = substr(__DIR__, 0, strpos(__DIR__, "import")).'import/tmp/';
+
+		$this->location = CIVICRM_TEMPLATE_COMPILEDIR . '/../import-tmp/';
+		if(!file_exists($this->location))
+			mkdir($this->location, 0777, true);
+
 		$this->filename = $values['event_id'].'-'.date("Ymdhis");
 		$this->xmlFile = $this->location.$this->filename.'.xml';
 		if(move_uploaded_file($_FILES['participants']['tmp_name'], $this->xmlFile)) {
