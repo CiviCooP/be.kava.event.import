@@ -81,8 +81,6 @@ function import_civicrm_navigationMenu(&$params) {
     if(array_key_exists('attributes', $menu) && $menu['attributes']['name'] == 'Events') {
 
       $maxKey = (max(array_keys($menu['child'])));
-      $menu['child'][$maxKey]['attributes']['separator'] = 1;
-
       $menu['child'][$maxKey+1] = array (
           'attributes' => array (
               'label'      => ts('Deelnemers importeren uit Pharfolio'),
@@ -98,4 +96,5 @@ function import_civicrm_navigationMenu(&$params) {
       );
     }
   }
+
 }
