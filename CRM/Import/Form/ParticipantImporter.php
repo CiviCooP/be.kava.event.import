@@ -33,10 +33,10 @@ class CRM_Import_Form_ParticipantImporter extends CRM_Core_Form {
 	function fetchCustom() {
 		try {
 			$this->fields = new stdClass;
-			$this->fields->extraGroup = civicrm_api3('CustomGroup', 'Getsingle', array("name" => "Extra"));
-			$this->fields->identificatieNummer = civicrm_api3('CustomField', 'Getsingle', array("name" => "Identificatienummer", "custom_group_id" => $this->fields->extraGroup['id']));
+			$this->fields->extraGroup = civicrm_api3('CustomGroup', 'Getsingle', array("name" => "contact_individual"));
+			$this->fields->identificatieNummer = civicrm_api3('CustomField', 'Getsingle', array("name" => "eID_code", "custom_group_id" => $this->fields->extraGroup['id']));
 		} catch(Exception $e) {
-			throw new Exception("Customfield identificatie has not been found.");
+			throw new Exception("Customfield eID_code has not been found.");
 		}
 	}
 	
