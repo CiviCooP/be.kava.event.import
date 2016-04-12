@@ -9,22 +9,24 @@
  */
 function _import_civix_civicrm_config(&$config = NULL) {
   static $configured = FALSE;
-  if ($configured) return;
+  if ($configured) {
+    return;
+  }
   $configured = TRUE;
 
   $template =& CRM_Core_Smarty::singleton();
 
-  $extRoot = dirname( __FILE__ ) . DIRECTORY_SEPARATOR;
+  $extRoot = dirname(__FILE__) . DIRECTORY_SEPARATOR;
   $extDir = $extRoot . 'templates';
 
-  if ( is_array( $template->template_dir ) ) {
-      array_unshift( $template->template_dir, $extDir );
+  if (is_array($template->template_dir)) {
+    array_unshift($template->template_dir, $extDir);
   } else {
-      $template->template_dir = array( $extDir, $template->template_dir );
+    $template->template_dir = [$extDir, $template->template_dir];
   }
 
-  $include_path = $extRoot . PATH_SEPARATOR . get_include_path( );
-  set_include_path( $include_path );
+  $include_path = $extRoot . PATH_SEPARATOR . get_include_path();
+  set_include_path($include_path);
 }
 
 /**
@@ -71,7 +73,7 @@ function _import_civix_civicrm_uninstall() {
 function _import_civix_civicrm_enable() {
   _import_civix_civicrm_config();
   if ($upgrader = _import_civix_upgrader()) {
-    if (is_callable(array($upgrader, 'onEnable'))) {
+    if (is_callable([$upgrader, 'onEnable'])) {
       $upgrader->onEnable();
     }
   }
@@ -86,7 +88,7 @@ function _import_civix_civicrm_enable() {
 function _import_civix_civicrm_disable() {
   _import_civix_civicrm_config();
   if ($upgrader = _import_civix_upgrader()) {
-    if (is_callable(array($upgrader, 'onDisable'))) {
+    if (is_callable([$upgrader, 'onDisable'])) {
       $upgrader->onDisable();
     }
   }
@@ -113,7 +115,7 @@ function _import_civix_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
  * @return CRM_Import_Upgrader
  */
 function _import_civix_upgrader() {
-  if (!file_exists(__DIR__.'/CRM/Import/Upgrader.php')) {
+  if (!file_exists(__DIR__ . '/CRM/Import/Upgrader.php')) {
     return NULL;
   } else {
     return CRM_Import_Upgrader_Base::instance();
@@ -131,12 +133,12 @@ function _import_civix_upgrader() {
  * @return array(string)
  */
 function _import_civix_find_files($dir, $pattern) {
-  if (is_callable(array('CRM_Utils_File', 'findFiles'))) {
+  if (is_callable(['CRM_Utils_File', 'findFiles'])) {
     return CRM_Utils_File::findFiles($dir, $pattern);
   }
 
-  $todos = array($dir);
-  $result = array();
+  $todos = [$dir];
+  $result = [];
   while (!empty($todos)) {
     $subdir = array_shift($todos);
     foreach (_import_civix_glob("$subdir/$pattern") as $match) {
@@ -155,8 +157,10 @@ function _import_civix_find_files($dir, $pattern) {
       closedir($dh);
     }
   }
+
   return $result;
 }
+
 /**
  * (Delegated) Implementation of hook_civicrm_managed
  *
@@ -198,11 +202,11 @@ function _import_civix_civicrm_caseTypes(&$caseTypes) {
       CRM_Core_Error::fatal($errorMessage);
       // throw new CRM_Core_Exception($errorMessage);
     }
-    $caseTypes[$name] = array(
+    $caseTypes[ $name ] = [
       'module' => 'be.kava.event.import',
-      'name' => $name,
-      'file' => $file,
-    );
+      'name'   => $name,
+      'file'   => $file,
+    ];
   }
 }
 
@@ -220,7 +224,8 @@ function _import_civix_civicrm_caseTypes(&$caseTypes) {
  */
 function _import_civix_glob($pattern) {
   $result = glob($pattern);
-  return is_array($result) ? $result : array();
+
+  return is_array($result) ? $result : [];
 }
 
 /**
@@ -236,28 +241,34 @@ function _import_civix_insert_navigation_menu(&$menu, $path, $item, $parentId = 
 
   // If we are done going down the path, insert menu
   if (empty($path)) {
-    if (!$navId) $navId = CRM_Core_DAO::singleValueQuery("SELECT max(id) FROM civicrm_navigation");
+    if (!$navId) {
+      $navId = CRM_Core_DAO::singleValueQuery("SELECT max(id) FROM civicrm_navigation");
+    }
     $navId ++;
-    $menu[$navId] = array (
-      'attributes' => array_merge($item, array(
-        'label'      => CRM_Utils_Array::value('name', $item),
-        'active'     => 1,
-        'parentID'   => $parentId,
-        'navID'      => $navId,
-      ))
-    );
-    return true;
+    $menu[ $navId ] = [
+      'attributes' => array_merge($item, [
+        'label'    => CRM_Utils_Array::value('name', $item),
+        'active'   => 1,
+        'parentID' => $parentId,
+        'navID'    => $navId,
+      ]),
+    ];
+
+    return TRUE;
   } else {
     // Find an recurse into the next level down
-    $found = false;
+    $found = FALSE;
     $path = explode('/', $path);
     $first = array_shift($path);
     foreach ($menu as $key => &$entry) {
       if ($entry['attributes']['name'] == $first) {
-        if (!$entry['child']) $entry['child'] = array();
+        if (!$entry['child']) {
+          $entry['child'] = [];
+        }
         $found = _import_civix_insert_navigation_menu($entry['child'], implode('/', $path), $item, $key);
       }
     }
+
     return $found;
   }
 }
@@ -269,11 +280,13 @@ function _import_civix_insert_navigation_menu(&$menu, $path, $item, $parentId = 
  */
 function _import_civix_civicrm_alterSettingsFolders(&$metaDataFolders = NULL) {
   static $configured = FALSE;
-  if ($configured) return;
+  if ($configured) {
+    return;
+  }
   $configured = TRUE;
 
   $settingsDir = __DIR__ . DIRECTORY_SEPARATOR . 'settings';
-  if(is_dir($settingsDir) && !in_array($settingsDir, $metaDataFolders)) {
+  if (is_dir($settingsDir) && !in_array($settingsDir, $metaDataFolders)) {
     $metaDataFolders[] = $settingsDir;
   }
 }
