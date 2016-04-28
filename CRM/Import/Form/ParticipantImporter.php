@@ -3,9 +3,17 @@ require_once 'CRM/Core/Form.php';
 
 class CRM_Import_Form_ParticipantImporter extends CRM_Core_Form {
 
-  private $fields, $participants = [], $unknownParticipants = [], $xmlFile, $location, $filename, $new = 0, $existing = 0, $debugInfo;
+  private $fields;
+  private $participants = [];
+  private $unknownParticipants = [];
+  private $xmlFile;
+  private $location;
+  private $filename;
+  private $new = 0;
+  private $existing = 0;
+  private $logfp;
 
-  function buildQuickForm() {
+  public function buildQuickForm() {
     CRM_Utils_System::setTitle(ts('Participant Import'));
     $this->addEntityRef('event_id', ts('Select Event'), [
       'entity'      => 'event',
@@ -31,7 +39,7 @@ class CRM_Import_Form_ParticipantImporter extends CRM_Core_Form {
     $this->fetchCustom();
   }
 
-  function fetchCustom() {
+  public function fetchCustom() {
     try {
       $this->fields = new stdClass;
       $this->fields->extraGroup = civicrm_api3('CustomGroup', 'Getsingle', ["name" => "contact_individual"]);
@@ -41,11 +49,11 @@ class CRM_Import_Form_ParticipantImporter extends CRM_Core_Form {
     }
   }
 
-  function postProcess() {
+  public function postProcess() {
     $values = $this->exportValues();
 
-    #$this->location = CIVICRM_TEMPLATE_COMPILEDIR . '/../import-tmp/';
-    $this->location = "/kava/civicrm-test.kava.be/sites/default/files/civicrm/import-tmp/";
+    $this->location = CIVICRM_TEMPLATE_COMPILEDIR . '/../import-tmp/';
+    // $this->location = "/kava/civicrm-test.kava.be/sites/default/files/civicrm/import-tmp/";
     if (!file_exists($this->location)) {
       mkdir($this->location, 0777, TRUE);
     }
@@ -76,34 +84,28 @@ class CRM_Import_Form_ParticipantImporter extends CRM_Core_Form {
     ]));
   }
 
-  function parseXML() {
-    libxml_use_internal_errors(TRUE);
-    $debugInfo .= "Enter method\n";
-    $debugInfo .= "JSON: " . $this->location . $this->filename . ".json\n";
-    if (file_exists($this->xmlFile)) {
-      $debugInfo .= "File '".$this->xmlFile."' exists\n";
+  public function parseXML() {
 
-      ## XML-inhoud wegschrijven naar debugFile
-      #$handle = fopen($this->xmlFile, "r");
-      #while(!feof($handle)){
-      #  $line = fgets($handle);
-      #  $debugInfo .= "$line";
-      #}
-      #fclose($handle);
+    libxml_use_internal_errors(TRUE);
+    CRM_Import_Logger::log("XML parsing started: " . $this->xmlFile . ".");
+
+    if (file_exists($this->xmlFile)) {
 
       $xmlReader = simplexml_load_file($this->xmlFile);
-      ##var_dump anyone?
-      #var_dump($xmlReader);
+      // CRM_Import_Logger::log(file_get_contents($this->xmlFile));
+      // CRM_Import_Logger::log(var_export($xmlReader, true));
 
       if ($this->xmlFile) {
-	$debugInfo .= "File is geladen\n";
+        CRM_Import_Logger::log("File is geladen.");
 
         foreach ($xmlReader->Presences->Person as $participant) {
-	  $debugInfo .= "Lijn lezen: $participant->FirstName1 $participant->LastName\n";
-	  ## is dit nodig?
-          #if ($participant->td[0] == "ID" || empty($participant->td[0]) || empty($participant->td[1]) || empty($participant->td[2])) {
-          #  continue;
-          #}
+          CRM_Import_Logger::log("Lijn lezen: $participant->FirstName1 $participant->LastName.");
+
+          /* is dit nodig? -> nee, dit was voor een CSV-bestand met als eerste rij kolomkoppen -KL
+          if ($participant->td[0] == "ID" || empty($participant->td[0]) || empty($participant->td[1]) || empty($participant->td[2])) {
+            continue;
+          } */
+
           $tmpParticipant = [
             'id'           => (string) $participant->PersonID,
             'last_name'    => (string) $participant->LastName,
@@ -120,10 +122,6 @@ class CRM_Import_Form_ParticipantImporter extends CRM_Core_Form {
           ];
           $this->participants[] = $tmpParticipant;
         }
-	## write debug-file
-	$myfile = fopen("/tmp/importlog", "w"); 
-	fwrite($myfile, $debugInfo);
-	fclose($myfile);
 
         $this->matchParticipants();
       } else {
@@ -136,12 +134,15 @@ class CRM_Import_Form_ParticipantImporter extends CRM_Core_Form {
     return TRUE;
   }
 
-  function matchParticipants() {
-    if (count($this->participants)) {
+  public function matchParticipants() {
+    if (count($this->participants) > 0) {
       foreach ($this->participants as $participant) {
+        $birthdate_fmt = date('Ymdhis', strtotime($participant['birth_date']));
+
         // Attempt 1 - match with identifier
         try {
-          $civiContact = civicrm_api3('Contact', 'getsingle', ["custom_7" => $participant['id']]);
+          $civiContact = civicrm_api3('Contact', 'getsingle', ["custom_" . $this->fields->identificatieNummer['id'] => $participant['id'], 'options.limit' => 1]);
+          CRM_Import_Logger::log("Matched participant by identifier (" . $participant['id'] . ").");
           $this->registerParticipation($civiContact['id'], $participant['registration']);
           $this->existing ++;
           continue;
@@ -151,7 +152,8 @@ class CRM_Import_Form_ParticipantImporter extends CRM_Core_Form {
         // Attempt 2 - match with firstname, lastname and date of birth
         try {
           $civiContact = civicrm_api3('Contact', 'getsingle',
-            ["first_name" => $participant['first_name_1'], "last_name" => $participant['last_name'], 'birth_date' => $participant['birth_date']]);
+            ["first_name" => $participant['first_name_1'], "last_name" => $participant['last_name'], 'birth_date' => $birthdate_fmt]);
+          CRM_Import_Logger::log("Matched participant by first name / last name / birth date (" . $participant['first_name_1'] . " " . $participant['last_name'] . " - " . $birthdate_fmt . ").");
           $this->registerParticipation($civiContact['id'], $participant['registration']);
           $this->setIdentification($civiContact['id'], $participant['id']);
           $this->existing ++;
@@ -161,7 +163,8 @@ class CRM_Import_Form_ParticipantImporter extends CRM_Core_Form {
         }
         // Attempt 3 - match with lastname and date of birth
         try {
-          $civiContact = civicrm_api3('Contact', 'getsingle', ["last_name" => $participant['last_name'], 'birth_date' => $participant['birth_date']]);
+          $civiContact = civicrm_api3('Contact', 'getsingle', ["last_name" => $participant['last_name'], 'birth_date' => $birthdate_fmt]);
+          CRM_Import_Logger::log("Matched participant by last name and birth date (" . $participant['last_name'] . " - " . $birthdate_fmt . ").");
           $this->registerParticipation($civiContact['id'], $participant['registration']);
           $this->setIdentification($civiContact['id'], $participant['id']);
           $this->existing ++;
@@ -171,7 +174,8 @@ class CRM_Import_Form_ParticipantImporter extends CRM_Core_Form {
         }
         // Attempt 4 - match with firstname and date of birth
         try {
-          $civiContact = civicrm_api3('Contact', 'getsingle', ["first_name" => $participant['first_name_1'], 'birth_date' => $participant['birth_date']]);
+          $civiContact = civicrm_api3('Contact', 'getsingle', ["first_name" => $participant['first_name_1'], 'birth_date' => $birthdate_fmt]);
+          CRM_Import_Logger::log("Matched participant by first name and birth date (" . $participant['first_name_1'] . " - " . $birthdate_fmt . ").");
           $this->registerParticipation($civiContact['id'], $participant['registration']);
           $this->setIdentification($civiContact['id'], $participant['id']);
           $this->existing ++;
@@ -180,15 +184,18 @@ class CRM_Import_Form_ParticipantImporter extends CRM_Core_Form {
           $civiContact = NULL;
         }
         // Still unknown, add to array
-        $this->unknownParticipants[ $participant['id'] ] = $participant;
+        CRM_Import_Logger::log("Could not find match for participant (" . $participant['first_name_1'] . " " . $participant['last_name'] . ").");
+        $this->unknownParticipants[$participant['id']] = $participant;
       }
     } else {
+      CRM_Import_Logger::log("ERROR: No participants have been found.");
       throw new Exception("No participants have been found.");
     }
   }
 
-  function registerParticipation($participantIdentifier, $date) {
+  public function registerParticipation($participantIdentifier, $date) {
     try {
+      CRM_Import_Logger::log("Adding participant record for contact id " . $participantIdentifier . " and event " . $_POST['event_id'] . ".");
       civicrm_api3('Participant', 'Create', [
         'event_id'      => $_POST['event_id'],
         'contact_id'    => $participantIdentifier,
@@ -197,14 +204,16 @@ class CRM_Import_Form_ParticipantImporter extends CRM_Core_Form {
         'register_date' => $date,
       ]);
     } catch (Exception $e) {
-      echo $e;
+      CRM_Import_Logger::log("ERROR: Failed to create participant record! " . $e->getMessage());
+      throw new Exception("Failed to create participant record! " . $e->getMessage());
     }
   }
 
-  function createContacts() {
+  public function createContacts() {
     if (count($this->unknownParticipants)) {
       foreach ($this->unknownParticipants as $participant) {
         try {
+          CRM_Import_Logger::log("Trying to create contact for participant (" . $participant['first_name_1'] . " " . $participant['last_name'] . ").");
           if (!empty($participant['first_name_1']) AND !empty($participant['last_name'])) {
             $contact = civicrm_api3('Contact', 'Create', [
               'contact_type' => 'individual',
@@ -225,30 +234,33 @@ class CRM_Import_Form_ParticipantImporter extends CRM_Core_Form {
           }
           $this->new ++;
         } catch (Exception $e) {
-          throw new Exception("Failed to create participant! " . $e);
+          CRM_Import_Logger::log("ERROR: Failed to create contact! " . $e->getMessage());
+          throw new Exception("Failed to create contact! " . $e->getMessage());
         }
       }
     }
   }
 
-  function fetchCountryIdentifier($isoCode) {
+  public function fetchCountryIdentifier($isoCode) {
     try {
       $country = civicrm_api3('Country', 'Getsingle', ['iso_code' => $isoCode]);
-
       return $country['id'];
     } catch (Exception $e) {
       return NULL;
     }
   }
 
-  function setIdentification($contact_id, $identificationNumber) {
+  public function setIdentification($contact_id, $identificationNumber) {
     try {
+      CRM_Import_Logger::log("Setting identification for contact " . $contact_id . " ( identification number " . $identificationNumber . " in custom_" . $this->fields->identificatieNummer['id'] . ").");
       civicrm_api3('CustomValue', 'Create', ['entity_id' => $contact_id, 'custom_' . $this->fields->identificatieNummer['id'] => $identificationNumber]);
     } catch (Exception $e) {
+      // Exceptions die niks doen leiden wel snel tot bugs, laten we het iig loggen -KL
+      CRM_Import_Logger::log("WARNING: Failed to set identification for contact " . $contact_id . " (identification number " . $identificationNumber . ").");
     }
   }
 
-  function serializeContacts() {
+  public function serializeContacts() {
     file_put_contents($this->location . $this->filename . ".json", json_encode($this->unknownParticipants));
     CRM_Utils_System::redirect(CRM_Utils_System::url('civicrm/event-participant-import-form', [
       'json'      => $this->filename . ".json",
@@ -259,7 +271,7 @@ class CRM_Import_Form_ParticipantImporter extends CRM_Core_Form {
     ]));
   }
 
-  function getRenderableElementNames() {
+  private function getRenderableElementNames() {
     $elementNames = [];
     foreach ($this->_elements as $element) {
       $label = $element->getLabel();
@@ -270,4 +282,5 @@ class CRM_Import_Form_ParticipantImporter extends CRM_Core_Form {
 
     return $elementNames;
   }
+
 }

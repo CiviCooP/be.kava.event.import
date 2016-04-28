@@ -3,9 +3,17 @@ require_once 'CRM/Core/Form.php';
 
 class CRM_Import_Form_ParticipantImporterMatch extends CRM_Core_Form {
 
-  public $fields, $unknownParticipants = [], $event_id, $status_id, $role_id, $json, $new = 0, $existing = 0, $matched = 0;
+  public $fields;
+  private $unknownParticipants = [];
+  private $event_id;
+  private $status_id;
+  private $role_id;
+  private $json;
+  private $new = 0;
+  private $existing = 0;
+  private $matched = 0;
 
-  function buildQuickForm() {
+  public function buildQuickForm() {
     /* Set page title */
     CRM_Utils_System::setTitle(ts('Participant Import'));
 
@@ -39,7 +47,7 @@ class CRM_Import_Form_ParticipantImporterMatch extends CRM_Core_Form {
     }
   }
 
-  function fetchCustom() {
+  public function fetchCustom() {
     try {
       $this->fields = new stdClass;
       $this->fields->extraGroup = civicrm_api3('CustomGroup', 'Getsingle', ["name" => "contact_individual"]);
@@ -49,23 +57,25 @@ class CRM_Import_Form_ParticipantImporterMatch extends CRM_Core_Form {
     }
   }
 
-  function getParticipants() {
+  public function getParticipants() {
     #$this->unknownParticipants = json_decode(file_get_contents(substr(__DIR__, 0, strpos(__DIR__, "import")) . "import/tmp/" . $this->json), TRUE);
-    $this->unknownParticipants = json_decode(file_get_contents("/kava/civicrm-test.kava.be/sites/default/files/civicrm/import-tmp/".$this->json), TRUE);
+
+    $location = CIVICRM_TEMPLATE_COMPILEDIR . '/../import-tmp/';
+    $this->unknownParticipants = json_decode(file_get_contents($location . $this->json), TRUE);
   }
 
-  function postHandler() {
+  public function postHandler() {
     foreach ($_POST as $id => $match) {
       if (!stristr($id, "con_")) {
         continue;
       }
       $id = substr($id, 4);
       if (empty($match)) {
-        $participantIdentifier = $this->createContact($this->unknownParticipants[ $id ]);
+        $participantIdentifier = $this->createContact($this->unknownParticipants[$id]);
       }
       if (!empty($match)) {
-        $this->registerParticipation($match, $this->unknownParticipants[ $id ]['registration']);
-        $this->setIdentification($match, $this->unknownParticipants[ $id ]);
+        $this->registerParticipation($match, $this->unknownParticipants[$id]['registration']);
+        $this->setIdentification($match, $this->unknownParticipants[$id]);
         $this->matched ++;
       }
     }
@@ -78,8 +88,10 @@ class CRM_Import_Form_ParticipantImporterMatch extends CRM_Core_Form {
     ]));
   }
 
-  function createContact($participant) {
+  // Functies hieronder zijn wel wat dubbel en niet echt DRY - eigenlijk liever afsplitsen
+  public function createContact($participant) {
     try {
+      CRM_Import_Logger::log("Trying to create contact for participant in match class (" . $participant['first_name_1'] . " " . $participant['last_name'] . ").");
       if (!empty($participant['first_name_1']) AND !empty($participant['last_name'])) {
         $contact = civicrm_api3('Contact', 'Create', [
           'contact_type'                                       => 'individual',
@@ -102,11 +114,12 @@ class CRM_Import_Form_ParticipantImporterMatch extends CRM_Core_Form {
         return $contact['id'];
       }
     } catch (Exception $e) {
+      CRM_Import_Logger::log("ERROR: Failed to create contact in match class! " . $e->getMessage());
       throw new Exception("Failed to create participant! " . $e);
     }
   }
 
-  function fetchCountryIdentifier($isoCode) {
+  public function fetchCountryIdentifier($isoCode) {
     try {
       $country = civicrm_api3('Country', 'Getsingle', ['iso_code' => $isoCode]);
 
@@ -116,28 +129,32 @@ class CRM_Import_Form_ParticipantImporterMatch extends CRM_Core_Form {
     }
   }
 
-  function registerParticipation($participantIdentifier, $date) {
+  public function registerParticipation($participantIdentifier, $date) {
     try {
+      CRM_Import_Logger::log("Adding participant record in match class for contact id " . $participantIdentifier . " and event " . $_POST['event_id'] . ".");
       civicrm_api3('Participant', 'Create', [
         'event_id'      => $this->event_id,
         'contact_id'    => $participantIdentifier,
         'status_id'     => $this->status_id,
-        'status_id'     => $this->role_id,
+        'role_id'       => $this->role_id,
         'register_date' => $date,
       ]);
     } catch (Exception $e) {
-      echo $e;
+      CRM_Import_Logger::log("ERROR: Failed to create participant record in match class! " . $e->getMessage());
+      throw new Exception("Failed to create participant record in match class! " . $e->getMessage());
     }
   }
 
-  function setIdentification($contact_id, $identificationNumber) {
+  public function setIdentification($contact_id, $identificationNumber) {
     try {
       civicrm_api3('CustomValue', 'Create', ['entity_id' => $contact_id, 'custom_' . $this->fields->identificatieNummer['id'] => $identificationNumber]);
     } catch (Exception $e) {
+      // Exceptions die niks doen leiden wel snel tot bugs, laten we het iig loggen -KL
+      CRM_Import_Logger::log("WARNING: Failed to set identification for contact " . $contact_id . " (identification number " . $identificationNumber . ").");
     }
   }
 
-  function getRenderableElementNames() {
+  private function getRenderableElementNames() {
     $elementNames = [];
     foreach ($this->_elements as $element) {
       $label = $element->getLabel();
