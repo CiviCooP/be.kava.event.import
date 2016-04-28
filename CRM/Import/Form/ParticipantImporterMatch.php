@@ -50,7 +50,8 @@ class CRM_Import_Form_ParticipantImporterMatch extends CRM_Core_Form {
   }
 
   function getParticipants() {
-    $this->unknownParticipants = json_decode(file_get_contents(substr(__DIR__, 0, strpos(__DIR__, "import")) . "import/tmp/" . $this->json), TRUE);
+    #$this->unknownParticipants = json_decode(file_get_contents(substr(__DIR__, 0, strpos(__DIR__, "import")) . "import/tmp/" . $this->json), TRUE);
+    $this->unknownParticipants = json_decode(file_get_contents("/kava/civicrm-test.kava.be/sites/default/files/civicrm/import-tmp/".$this->json), TRUE);
   }
 
   function postHandler() {

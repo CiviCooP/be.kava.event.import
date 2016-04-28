@@ -3,7 +3,7 @@ require_once 'CRM/Core/Form.php';
 
 class CRM_Import_Form_ParticipantImporter extends CRM_Core_Form {
 
-  private $fields, $participants = [], $unknownParticipants = [], $xmlFile, $location, $filename, $new = 0, $existing = 0;
+  private $fields, $participants = [], $unknownParticipants = [], $xmlFile, $location, $filename, $new = 0, $existing = 0, $debugInfo;
 
   function buildQuickForm() {
     CRM_Utils_System::setTitle(ts('Participant Import'));
@@ -44,7 +44,8 @@ class CRM_Import_Form_ParticipantImporter extends CRM_Core_Form {
   function postProcess() {
     $values = $this->exportValues();
 
-    $this->location = CIVICRM_TEMPLATE_COMPILEDIR . '/../import-tmp/';
+    #$this->location = CIVICRM_TEMPLATE_COMPILEDIR . '/../import-tmp/';
+    $this->location = "/kava/civicrm-test.kava.be/sites/default/files/civicrm/import-tmp/";
     if (!file_exists($this->location)) {
       mkdir($this->location, 0777, TRUE);
     }
@@ -77,29 +78,53 @@ class CRM_Import_Form_ParticipantImporter extends CRM_Core_Form {
 
   function parseXML() {
     libxml_use_internal_errors(TRUE);
+    $debugInfo .= "Enter method\n";
+    $debugInfo .= "JSON: " . $this->location . $this->filename . ".json\n";
     if (file_exists($this->xmlFile)) {
+      $debugInfo .= "File '".$this->xmlFile."' exists\n";
+
+      ## XML-inhoud wegschrijven naar debugFile
+      #$handle = fopen($this->xmlFile, "r");
+      #while(!feof($handle)){
+      #  $line = fgets($handle);
+      #  $debugInfo .= "$line";
+      #}
+      #fclose($handle);
+
       $xmlReader = simplexml_load_file($this->xmlFile);
+      ##var_dump anyone?
+      #var_dump($xmlReader);
+
       if ($this->xmlFile) {
-        foreach ($xmlReader as $participant) {
-          if ($participant->td[0] == "ID" || empty($participant->td[0]) || empty($participant->td[1]) || empty($participant->td[2])) {
-            continue;
-          }
+	$debugInfo .= "File is geladen\n";
+
+        foreach ($xmlReader->Presences->Person as $participant) {
+	  $debugInfo .= "Lijn lezen: $participant->FirstName1 $participant->LastName\n";
+	  ## is dit nodig?
+          #if ($participant->td[0] == "ID" || empty($participant->td[0]) || empty($participant->td[1]) || empty($participant->td[2])) {
+          #  continue;
+          #}
           $tmpParticipant = [
-            'id'           => (string) $participant->td[0],
-            'last_name'    => (string) $participant->td[1],
-            'first_name_1' => (string) $participant->td[2],
-            'first_name_2' => (string) $participant->td[3],
-            'first_name_3' => (string) $participant->td[4],
-            'address'      => (string) $participant->td[5],
-            'postcode'     => (string) $participant->td[6],
-            'gemeente'     => (string) $participant->td[7],
-            'land'         => (string) $participant->td[8],
-            'birth_date'   => (string) $participant->td[9],
-            'birth_place'  => (string) $participant->td[10],
-            'registration' => (string) $participant->td[11],
+            'id'           => (string) $participant->PersonID,
+            'last_name'    => (string) $participant->LastName,
+            'first_name_1' => (string) $participant->FirstName1,
+            'first_name_2' => (string) $participant->FirstName2,
+            'first_name_3' => (string) $participant->FirstName3,
+            'address'      => (string) $participant->Address,
+            'postcode'     => (string) $participant->ZIP,
+            'gemeente'     => (string) $participant->City,
+            'land'         => (string) $participant->Country,
+            'birth_date'   => (string) $participant->BirthDate,
+            'birth_place'  => (string) $participant->BirthLocation,
+            'registration' => (string) $participant->RegisterDate,
           ];
           $this->participants[] = $tmpParticipant;
         }
+	## write debug-file
+	$myfile = fopen("/tmp/importlog", "w"); 
+	fwrite($myfile, $debugInfo);
+	fclose($myfile);
+
         $this->matchParticipants();
       } else {
         throw new Exception("XML file doesn't contain participant data.");
