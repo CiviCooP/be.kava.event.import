@@ -76,24 +76,24 @@ function import_civicrm_managed(&$entities) {
  */
 function import_civicrm_navigationMenu(&$params) {
 
-  foreach ($params as &$menu) {
+  foreach($params as &$menu) {
     // print_r($params);
-    if (array_key_exists('attributes', $menu) && $menu['attributes']['name'] == 'Events') {
+    if(array_key_exists('attributes', $menu) && $menu['attributes']['name'] == 'Events') {
 
       $maxKey = (max(array_keys($menu['child'])));
-      $menu['child'][ $maxKey + 1 ] = [
-        'attributes' => [
-          'label'      => ts('Deelnemers importeren uit Pharfolio'),
-          'name'       => ts('Deelnemers importeren uit Pharfolio'),
-          'url'        => 'civicrm/event-participant-import',
-          'permission' => 'edit event participants',
-          'operator'   => NULL,
-          'separator'  => NULL,
-          'parentID'   => 2,
-          'navID'      => $maxKey + 1,
-          'active'     => 1,
-        ],
-      ];
+      $menu['child'][$maxKey+1] = array (
+          'attributes' => array (
+              'label'      => ts('Deelnemers importeren uit Pharfolio'),
+              'name'       => ts('Deelnemers importeren uit Pharfolio'),
+              'url'        => 'civicrm/event-participant-import',
+              'permission' => 'edit event participants',
+              'operator'   => null,
+              'separator'  => null,
+              'parentID'   => 2,
+              'navID'      => $maxKey+1,
+              'active'     => 1,
+          ),
+      );
     }
   }
 

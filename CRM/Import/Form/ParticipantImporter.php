@@ -1,4 +1,4 @@
-<?php
+['participant_id']<?php
 require_once 'CRM/Core/Form.php';
 
 class CRM_Import_Form_ParticipantImporter extends CRM_Core_Form {
@@ -195,17 +195,36 @@ class CRM_Import_Form_ParticipantImporter extends CRM_Core_Form {
 
   public function registerParticipation($participantIdentifier, $date) {
     try {
-      CRM_Import_Logger::log("Adding participant record for contact id " . $participantIdentifier . " and event " . $_POST['event_id'] . ".");
-      civicrm_api3('Participant', 'Create', [
-        'event_id'      => $_POST['event_id'],
-        'contact_id'    => $participantIdentifier,
-        'status_id'     => $_POST['status_id'],
-        'role_id'       => $_POST['role_id'],
-        'register_date' => $date,
+      CRM_Import_Logger::log("Checking if participant is already registered for contact id " . $participantIdentifier . " and event " . $_POST['event_id'] . ".");
+      $result = civicrm_api3('Participant', 'Get', [
+        'event_id'   => $_POST['event_id'],
+        'contact_id' => $participantIdentifier,
       ]);
+      if ($result['count'] != 0) {
+        foreach ($result['values'] as $existing_participant) {
+            CRM_Import_Logger::log("Update existing participant record in match class for participant id " . $existing_participant['participant_id'] . " contact id " . $participantIdentifier . " and event " . $_POST['event_id'] . ".");
+            civicrm_api3('Participant', 'Create', [
+              'id'            => $existing_participant['participant_id'],
+	      'event_id'   => $_POST['event_id'],
+              'contact_id' => $participantIdentifier,
+	      'status_id'     => $_POST['status_id'],
+              'role_id'       => $_POST['role_id'],
+              'register_date' => $date
+            ]);
+        }
+      } else {
+        CRM_Import_Logger::log("Adding participant record in match class for contact id " . $participantIdentifier . " and event " . $_POST['event_id'] . ".");
+        civicrm_api3('Participant', 'Create', [
+          'event_id'      => $_POST['event_id'],
+          'contact_id'    => $participantIdentifier,
+          'status_id'     => $_POST['status_id'],
+          'role_id'       => $_POST['role_id'],
+          'register_date' => $date,
+        ]);
+      }
     } catch (Exception $e) {
-      CRM_Import_Logger::log("ERROR: Failed to create participant record! " . $e->getMessage());
-      throw new Exception("Failed to create participant record! " . $e->getMessage());
+      CRM_Import_Logger::log("ERROR: Failed to create participant record in match class! " . $e->getMessage());
+      throw new Exception("Failed to create participant record in match class! " . $e->getMessage());
     }
   }
 
